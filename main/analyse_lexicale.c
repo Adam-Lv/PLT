@@ -2,14 +2,13 @@
 #include <stdlib.h>
 #include <regex.h>
 
+#define bool int
+#define true 1
+#define false 0
+#define MAX_CHAR_NUM 32
+#define MAX_MOT_NUM 144
 
-#define MAX_LINE_NUM 20
-#define MAX_CHAR_NUM 100
-#define MAX_MOT_NUM 1024
-
-extern char operatorSet[2][4] = {"=", "→"};  // 226 134 146 = →
-extern char keyWordSet[5][11] = {"Automate", "etats", "initial", "final", "transition"};
-extern char delimiterSet[6] = {'(', ')', '[', ']', '{', '}'};
+//Related to lexeme
 
 typedef enum lexeme_t {
     DIGIT,  // [0-9]+
@@ -25,134 +24,248 @@ typedef struct lexeme {
     char *value;
 } lexeme;
 
-typedef struct ListInt {
+//Related to heap
+typedef struct HeapEle {
+    lexeme *ele;
+    int head_ptr;
+
+    bool (*lt)(struct HeapEle *, struct HeapEle *);
+
+    bool (*gt)(struct HeapEle *, struct HeapEle *);
+
+    bool (*eq)(struct HeapEle *, struct HeapEle *);
+} HeapEle;
+
+static inline bool lt(HeapEle *a, HeapEle *b) { return a->head_ptr < b->head_ptr; }
+
+static inline bool gt(HeapEle *a, HeapEle *b) { return a->head_ptr > b->head_ptr; }
+
+static inline bool eq(HeapEle *a, HeapEle *b) { return a->head_ptr == b->head_ptr; }
+
+HeapEle *NewHeapEle(lexeme *ele, int head_ptr) {
+    HeapEle *this = malloc(sizeof(HeapEle));
+    this->head_ptr = head_ptr;
+    this->ele = ele;
+    this->lt = lt;
+    this->gt = gt;
+    this->eq = eq;
+    return this;
+}
+
+typedef struct Heap {
+    HeapEle *container;
+    int size;
+    int n; //current size of heap
+
+    void (*sift_down)(struct Heap *, int);
+
+    int (*left_child)(int);
+
+    int (*right_child)(int);
+
+    int (*parent)(int);
+
+    HeapEle *(*get_ele)(struct Heap *, int);
+
+    void (*set_ele)(struct Heap *, int, HeapEle *);
+
+    bool (*is_leaf)(struct Heap *, int);
+
+    HeapEle *(*remove_min)(struct Heap *);
+
+    bool (*insert)(struct Heap *, HeapEle *);
+
+    void (*swap)(struct Heap *, int, int);
+} Heap;
+
+static inline int left_child(int pos) { return 2 * pos + 1; }
+
+static inline int right_child(int pos) { return 2 * pos + 2; }
+
+static inline int parent(int pos) { return (pos - 1) / 2; }
+
+static inline HeapEle *get_ele(Heap *heap, int pos) { return &heap->container[pos]; }
+
+static inline void set_ele(Heap *heap, int pos, HeapEle *ele) {
+    heap->container[pos] = *ele;
+}
+
+static void swap(Heap *heap, int a, int b) {
+    HeapEle temp = *heap->get_ele(heap, a);
+    heap->set_ele(heap, a, heap->get_ele(heap, b));
+    heap->set_ele(heap, b, &temp);
+}
+
+static inline bool is_leaf(Heap *heap, int pos) { return pos >= heap->n / 2; }
+
+static void sift_down(Heap *heap, int pos) {
+    HeapEle *temp = NewHeapEle(NULL, 0);
+    while (!heap->is_leaf(heap, pos)) {
+        int j = heap->left_child(pos);
+        int rc = heap->right_child(pos);
+        if ((rc < heap->n) && temp->gt(heap->get_ele(heap, j), heap->get_ele(heap, rc))) j = rc;
+        if (!temp->gt(heap->get_ele(heap, pos), heap->get_ele(heap, j))) return;
+        heap->swap(heap, pos, j);
+        pos = j;
+    }
+    free(temp);
+}
+
+static HeapEle *remove_min(Heap *heap) {
+    if (heap->n == 0) return false;
+    heap->swap(heap, 0, --heap->n);
+    if (heap->n != 0) heap->sift_down(heap, 0);
+    return heap->get_ele(heap, heap->n);
+}
+
+static bool insert(Heap *heap, HeapEle *ele) {
+    if (heap->n >= heap->size) return false;
+    int curr = heap->n++;
+    heap->set_ele(heap, curr, ele);
+    while ((curr != 0) && ele->lt(heap->get_ele(heap, curr), heap->get_ele(heap, heap->parent(curr)))) {
+        heap->swap(heap, curr, heap->parent(curr));
+        curr = heap->parent(curr);
+    }
+    return true;
+}
+
+Heap *NewHeap(int size) {
+    Heap *this = malloc(sizeof(Heap));
+    this->n = 0;
+    this->container = malloc(sizeof(HeapEle) * size);
+    this->size = size;
+    this->sift_down = sift_down;
+    this->left_child = left_child;
+    this->right_child = right_child;
+    this->parent = parent;
+    this->get_ele = get_ele;
+    this->set_ele = set_ele;
+    this->is_leaf = is_leaf;
+    this->remove_min = remove_min;
+    this->insert = insert;
+    this->swap = swap;
+    return this;
+}
+
+typedef struct {
     int length;
-    int *container;
-} ListInt;
+    char *content;
+} String;
 
-typedef struct match_result {
-    int count;
-    int *heads;
-    int *tails;
-}match_result;
-
-ListInt *eliminate_comments(FILE *file) {
-    ListInt *buffer = malloc(sizeof(ListInt));
+String *eliminate_comments(FILE *file) {
+    String *buffer = malloc(sizeof(String));
     buffer->length = MAX_MOT_NUM * MAX_CHAR_NUM;
-    buffer->container = malloc(sizeof(int) * MAX_CHAR_NUM * MAX_MOT_NUM);
-    int c_previos = fgetc(file);
+    buffer->content = malloc(sizeof(char) * MAX_CHAR_NUM * MAX_MOT_NUM);
+    int c_previous = fgetc(file);
     int c;
     int c_num = 0;
     while ((c = fgetc(file)) != EOF) {
-        if (c_previos == '/') {
+        if (c_previous == '/') {
             switch (c) {
                 case '/':
-                    while ((c_previos = fgetc(file)) != EOF) {
-                        if (c_previos == '\n') {
+                    while ((c_previous = fgetc(file)) != EOF) {
+                        if (c_previous == '\n') {
                             break;
                         }
                     }
-                    if (c_previos == EOF) {
-                        buffer->container[c_num++] = '\n';
+                    if (c_previous == EOF) {
+                        buffer->content[c_num++] = '\n';
                         break;
                     }
                     break;
                 case '*':
-                    c_previos = fgetc(file);
+                    c_previous = fgetc(file);
                     while ((c = fgetc(file)) != EOF) {
-                        if (c_previos == '*' && c == '/') {
-                            c_previos = '\n';
+                        if (c_previous == '*' && c == '/') {
+                            c_previous = '\n';
                             break;
                         } else
-                            c_previos = c;
+                            c_previous = c;
                     }
                     break;
                 default:
-                    buffer->container[c_num++] = c_previos;
-                    c_previos = c;
+                    buffer->content[c_num++] = (char) c_previous;
+                    c_previous = c;
             }
         } else {
-            buffer->container[c_num++] = c_previos;
-            c_previos = c;
+            buffer->content[c_num++] = (char) c_previous;
+            c_previous = c;
         }
     }
-    buffer->container[c_num++] = c_previos;
+    buffer->content[c_num++] = (char) c_previous;
     buffer->length = c_num;
-//    for (int i = 0; i < c_num; i++) { putchar(buffer->container[i]); }
+    //for (int i = 0; i < buffer->length; i++) { putchar(buffer->content[i]); }
     return buffer;
 }
 
-void regular_expression_match(ListInt *buffer, regex_t regexpr) {
-    int res, head, tail;
+void regular_expression_match(String *buffer, regex_t regexpr, lexeme_t type, Heap *heap) {
+    int res, head, tail, offset = 0;
     regmatch_t pmatch[1];
+    char *p = buffer->content;
     do {
-        res = regexec(&regexpr, (char *)buffer->container, 1, pmatch, 0);
+        res = regexec(&regexpr, p, 1, pmatch, 0);
         if (res) break;
         head = pmatch[0].rm_so;
         tail = pmatch[0].rm_eo;
-
-    }while(1);
+        if (type == DIGIT && head + offset != 0 &&
+            (buffer->content[head + offset - 1] == '`' || buffer->content[head + offset - 1] == '"')) {
+            p += tail;
+            offset += tail;
+            continue;
+        }
+        //length of string is tail - head, but needs a \0 and the end
+        lexeme *temp = malloc(sizeof(lexeme));
+        char *value = malloc(sizeof(char) * (tail - head + 1));
+        for (int i = 0; i < tail - head; i++)
+            value[i] = buffer->content[head + offset + i];
+        value[tail - head] = '\0';
+        temp->value = value;
+        temp->type = type;
+        HeapEle *ele = NewHeapEle(temp, head + offset);
+        heap->insert(heap, ele);
+        p += tail;
+        offset += tail;
+    } while (true);
 }
 
-void analyse_lexicale(char *in_file) {
+lexeme *analyse_lexicale(char *in_file) {
     FILE *file = fopen(in_file, "r");
 
     // Eliminate the comments
-    ListInt *buffer = eliminate_comments(file);
-
-
-    // Divide the buffer according to lines
-    /*int c;
-    int **lines = (int **) malloc(sizeof(int *) * line_num * MAX_CHAR_NUM);
-    for (int i = 0; i < line_num; i++) lines[i] = (int *) malloc(sizeof(int *) * MAX_CHAR_NUM);
-    for (int i = 0, temp_c = 0, temp_l = 0; i < c_num; i++) {
-        c = buffer->container[i];
-        if (c != '\n') {
-            lines[temp_l][temp_c++] = c;
-        } else {
-            lines[temp_l++][temp_c] = '\0';
-            temp_c = 0;
-        }
-    }*/
-
-    // Find out the information by regular expressions
-    regex_t reg_digit, reg_operator, reg_character, reg_keyword, reg_dilimiter, reg_string;
+    String *buffer = eliminate_comments(file);
+    // Find the information by regular expressions
+    regex_t reg_digit, reg_operator, reg_character, reg_keyword, reg_delimiter, reg_string;
     char *regexp_digit = "[0-9]+";
-    char *regexp_operator = "(=|→)";
-    char *regexp_character = "`.+`";
+    char *regexp_operator = "[=→]";
+    char *regexp_character = "`[^`.]+`";
     char *regexp_keyword = "(Automate|etats|initial|final|transition)";
-    char *regexp_dilimiter = "(\(|\)|\[|\]|\{|\})";
-    char *regexp_string = "\".+\"";
+    char *regexp_delimiter = "[\\(\\)\\[\\]\\{\\}]";
+    char *regexp_string = "\"[^\".]+\"";
     regcomp(&reg_digit, regexp_digit, REG_EXTENDED);
     regcomp(&reg_operator, regexp_operator, REG_EXTENDED);
     regcomp(&reg_character, regexp_character, REG_EXTENDED);
     regcomp(&reg_keyword, regexp_keyword, REG_EXTENDED);
-    regcomp(&reg_dilimiter, regexp_dilimiter, REG_EXTENDED);
+    int a = regcomp(&reg_delimiter, regexp_delimiter, REG_EXTENDED);
     regcomp(&reg_string, regexp_string, REG_EXTENDED);
+    Heap *result_heap = NewHeap(MAX_MOT_NUM);
+    regular_expression_match(buffer, reg_keyword, KEYWORD, result_heap);
+    regular_expression_match(buffer, reg_character, CHARACTER, result_heap);
+    regular_expression_match(buffer, reg_string, STRING, result_heap);
+    regular_expression_match(buffer, reg_delimiter, DELIMITER, result_heap);
+    regular_expression_match(buffer, reg_operator, OPERATOR, result_heap);
+    regular_expression_match(buffer, reg_digit, DIGIT, result_heap);
 
-    free(buffer->container);
-    free(buffer);
-}
-
-/*int **analyse_lexicale(char *in_file) {
-    FILE *file = fopen(in_file, "r");
-    //Divided by lines.
-    int **lines = (int **) malloc(sizeof(int *) * MAX_LINE_NUM * MAX_CHAR_NUM);
-    for (int i = 0; i < MAX_LINE_NUM; i++) lines[i] = (int *) malloc(sizeof(int *) * MAX_CHAR_NUM);
-    int c;
-    int line_num = 0;
-    int c_num = 0;
-    while ((c = fgetc(file)) != EOF) {
-        if (c != '\n') {
-            lines[line_num][c_num++] = c;
-        } else {
-            lines[line_num++][c_num] = '\0';
-            c_num = 0;
-        }
-        if (c>128) {
-            putchar(c);
-            printf("%d\n", c);
-        }
+    //generate analyse-lexicale result from the heap
+    lexeme *res = malloc(sizeof(lexeme) * (result_heap->n + 1));
+    HeapEle *temp;
+    for (int i = 0; result_heap->n; i++) {
+        temp = result_heap->remove_min(result_heap);
+        res[i].type = temp->ele->type;
+        res[i].value = temp->ele->value;
     }
-    return lines;
-}*/
+    free(buffer->content);
+    free(buffer);
+    free(result_heap->container);
+    free(result_heap);
+    return res;
+}

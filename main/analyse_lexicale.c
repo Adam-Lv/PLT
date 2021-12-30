@@ -213,6 +213,8 @@ void regular_expression_match(String *buffer, regex_t regexpr, lexeme_t type, He
             offset += tail;
             continue;
         }
+        if (type == OPERATOR && buffer->content[head + offset] != '=')
+            tail += 2;
         //length of string is tail - head, but needs a \0 and the end
         lexeme *temp = malloc(sizeof(lexeme));
         char *value = malloc(sizeof(char) * (tail - head + 1));
@@ -228,6 +230,26 @@ void regular_expression_match(String *buffer, regex_t regexpr, lexeme_t type, He
     } while (true);
 }
 
+void match_delimiter(String *buffer, Heap *heap) {
+    lexeme *temp;
+    char *value;
+    HeapEle *ele;
+    char c;
+    for (int i = 0; i < buffer->length; i++) {
+        c = buffer->content[i];
+        if (c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}') {
+            temp = malloc(sizeof(lexeme));
+            value = malloc(sizeof(char) * 2);
+            value[0] = buffer->content[i];
+            value[1] = '\0';
+            temp->value = value;
+            temp->type = DELIMITER;
+            ele = NewHeapEle(temp, i);
+            heap->insert(heap, ele);
+        }
+    }
+}
+
 lexeme *analyse_lexicale(char *in_file) {
     FILE *file = fopen(in_file, "r");
 
@@ -239,21 +261,22 @@ lexeme *analyse_lexicale(char *in_file) {
     char *regexp_operator = "[=→]";
     char *regexp_character = "`[^`.]+`";
     char *regexp_keyword = "(Automate|etats|initial|final|transition)";
-    char *regexp_delimiter = "[\\(\\)\\[\\]\\{\\}]";
+    //char *regexp_delimiter = "[\\(\\)\\[\\]\\{\\}]";
     char *regexp_string = "\"[^\".]+\"";
     regcomp(&reg_digit, regexp_digit, REG_EXTENDED);
     regcomp(&reg_operator, regexp_operator, REG_EXTENDED);
     regcomp(&reg_character, regexp_character, REG_EXTENDED);
     regcomp(&reg_keyword, regexp_keyword, REG_EXTENDED);
-    int a = regcomp(&reg_delimiter, regexp_delimiter, REG_EXTENDED);
+    //regcomp(&reg_delimiter, regexp_delimiter, REG_EXTENDED);
     regcomp(&reg_string, regexp_string, REG_EXTENDED);
     Heap *result_heap = NewHeap(MAX_MOT_NUM);
     regular_expression_match(buffer, reg_keyword, KEYWORD, result_heap);
     regular_expression_match(buffer, reg_character, CHARACTER, result_heap);
     regular_expression_match(buffer, reg_string, STRING, result_heap);
-    regular_expression_match(buffer, reg_delimiter, DELIMITER, result_heap);
+    //regular_expression_match(buffer, reg_delimiter, DELIMITER, result_heap);
     regular_expression_match(buffer, reg_operator, OPERATOR, result_heap);
     regular_expression_match(buffer, reg_digit, DIGIT, result_heap);
+    match_delimiter(buffer, result_heap);
 
     //generate analyse-lexicale result from the heap
     lexeme *res = malloc(sizeof(lexeme) * (result_heap->n + 1));

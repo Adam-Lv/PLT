@@ -4,7 +4,7 @@ project(PLT C)
 set(CMAKE_C_STANDARD 11)
 
 add_executable(runtime runtime.c)
-add_executable(AL main/analyse_lexicale.c)
+#add_executable(AL main/analyse_lexicale.c main/analyse_lexicale.h)
 add_executable(ASy main/analyse_syntaxique.c)
 add_executable(ASe main/analyse_semantique.c)
 add_executable(Compile main/compile_automate.c)

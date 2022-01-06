@@ -99,6 +99,16 @@ etat_list *automate_etats(lexeme *AL_res, int head, int tail) {
     return res;
 }
 
+static int str2int(char *str) {
+    int res = 0;
+    for (int i = 0; i < strlen(str); i++) {
+        if (res == 0 && str[i] == '0') continue;
+        res = 10 * res + (str[i] - '0');
+    }
+    return res;
+
+}
+
 final_list *automate_finals(lexeme *AL_res, int head, int tail) {
     final_list *res = malloc(sizeof(final_list));
     int temp[MAX_ETAT_NUM];
@@ -114,7 +124,7 @@ final_list *automate_finals(lexeme *AL_res, int head, int tail) {
         free(res);
         return NULL;
     }
-    temp[length++] = AL_res[head].value[0] - '0';
+    temp[length++] = str2int(AL_res[head].value);
     for (int i = head + 1; i < tail; i++) {
         if (etat_actif == 1) // COMMA
         {
@@ -123,7 +133,7 @@ final_list *automate_finals(lexeme *AL_res, int head, int tail) {
                 free(res);
                 return NULL;
             } else {
-                temp[length++] = AL_res[i].value[0] - '0';
+                temp[length++] = str2int(AL_res[i].value);
                 etat_actif = 0;
             }
         } else {  // others
@@ -182,7 +192,7 @@ transition_list *transitions_zero_stack(lexeme *AL_res, int head, int tail) {
                     free(transitions);
                     return NULL;
                 }
-                temp[length].start = AL_res[i].value[0] - '0';
+                temp[length].start = str2int(AL_res[i].value);
                 etat_actif = 1;
                 break;
             case 1:  // DIGIT
@@ -205,7 +215,7 @@ transition_list *transitions_zero_stack(lexeme *AL_res, int head, int tail) {
                     free(transitions);
                     return NULL;
                 }
-                temp[length].end = AL_res[i].value[0] - '0';
+                temp[length].end = str2int(AL_res[i].value);
                 etat_actif = 1;
                 break;
             case 3:  // ,
@@ -270,6 +280,7 @@ transition_list *transitions_one_stack(lexeme *AL_res, int head, int tail) {
     transition_list *transitions = malloc(sizeof(transition_list));
     int length = 0;
     int etat_actif = 0;
+    int op_num = 1;
     transition temp[MAX_TRANSITION_NUM];
     for (int i = 0; i < MAX_TRANSITION_NUM; i++) {
         temp[i].start = temp[i].end = 0;
@@ -296,11 +307,16 @@ transition_list *transitions_one_stack(lexeme *AL_res, int head, int tail) {
             case 0:  // (
                 switch (AL_res[i].type) {
                     case DIGIT:
-                        temp[length].start = AL_res[i].value[0] - '0';
+                        temp[length].start = str2int(AL_res[i].value);
                         etat_actif = 1;
                         break;
                     case OPERATOR:
                         if (stack->head->next == stack->tail && AL_res[i].value[0] != '=') {
+                            if (op_num != 1) {
+                                print_error("nothing", "more than one transition expression");
+                                free(transitions);
+                                return NULL;
+                            }
                             temp[length].stack_op1[0] = AL_res[i];
                             etat_actif = 2;
                             break;
@@ -311,6 +327,11 @@ transition_list *transitions_one_stack(lexeme *AL_res, int head, int tail) {
                         }
                     case CHARACTER:
                         etat_actif = 4;
+                        if (op_num != 1) {
+                            print_error("nothing", "more than one transition expression");
+                            free(transitions);
+                            return NULL;
+                        }
                         temp[length].stack_op1[0] = AL_res[i];
                         break;
                     case DELIMITER:  // Pas d'action de pile
@@ -325,6 +346,7 @@ transition_list *transitions_one_stack(lexeme *AL_res, int head, int tail) {
                             return NULL;
                         }
                         free(stack->pop(stack));
+                        op_num++;
                         etat_actif = 5;
                         break;
                     default:
@@ -359,6 +381,7 @@ transition_list *transitions_one_stack(lexeme *AL_res, int head, int tail) {
                                 return NULL;
                             }
                             free(stack->pop(stack));
+                            op_num++;
                             etat_actif = 4;
                             break;
                         } else {
@@ -367,7 +390,7 @@ transition_list *transitions_one_stack(lexeme *AL_res, int head, int tail) {
                             return NULL;
                         }
                     case DIGIT:
-                        temp[length].end = AL_res[i].value[0] - '0';
+                        temp[length].end = str2int(AL_res[i].value);
                         etat_actif = 1;
                         break;
                     default:
@@ -382,6 +405,11 @@ transition_list *transitions_one_stack(lexeme *AL_res, int head, int tail) {
                         if (stack->head == stack->tail) {
                             temp[length].character = AL_res[i].value;
                         } else {
+                            if (op_num != 1) {
+                                print_error("nothing", "more than one transition expression");
+                                free(transitions);
+                                return NULL;
+                            }
                             temp[length].stack_op1[1] = AL_res[i];
                         }
                         etat_actif = 4;
@@ -399,6 +427,11 @@ transition_list *transitions_one_stack(lexeme *AL_res, int head, int tail) {
                     case OPERATOR:
                         if (stack->head == stack->tail) {
                             print_error("character or → ", AL_res[i].value);
+                            free(transitions);
+                            return NULL;
+                        }
+                        if (op_num != 1) {
+                            print_error("nothing", "more than one transition expression");
                             free(transitions);
                             return NULL;
                         }
@@ -431,7 +464,12 @@ transition_list *transitions_one_stack(lexeme *AL_res, int head, int tail) {
                         }
                         free(stack->pop(stack));
                         etat_actif = 5;
-                        if (stack->is_empty(stack)) length++;
+                        if (stack->is_empty(stack))  {
+                            length++;
+                            op_num = 1;
+                        } else {
+                            op_num++;
+                        }
                         break;
                     case COMMA:
                         etat_actif = 3;
@@ -467,6 +505,7 @@ transition_list *transitions_one_stack(lexeme *AL_res, int head, int tail) {
                         etat_actif = 5;
                         if (stack->is_empty(stack)) {
                             length++;
+                            op_num = 1;
                         }
                         break;
                     default:
@@ -519,13 +558,18 @@ transition_list *transitions_two_stack(lexeme *AL_res, int head, int tail) {
             case 0:  // (
                 switch (AL_res[i].type) {
                     case DIGIT:
-                        temp[length].start = AL_res[i].value[0] - '0';
+                        temp[length].start = str2int(AL_res[i].value);
                         etat_actif = 1;
                         break;
                     case OPERATOR:
                         if (stack->head->next == stack->tail && AL_res[i].value[0] != '=') {
                             if (op_num == 1) temp[length].stack_op1[0] = AL_res[i];
-                            else temp[length].stack_op2[0] = AL_res[i];
+                            else if(op_num == 2) temp[length].stack_op2[0] = AL_res[i];
+                            else {
+                                print_error("nothing", "more than two transition expressions");
+                                free(transitions);
+                                return NULL;
+                            }
                             etat_actif = 2;
                             break;
                         } else {
@@ -535,7 +579,12 @@ transition_list *transitions_two_stack(lexeme *AL_res, int head, int tail) {
                         }
                     case CHARACTER:
                         if (op_num == 1) temp[length].stack_op1[0] = AL_res[i];
-                        else temp[length].stack_op2[0] = AL_res[i];
+                        else if(op_num == 2) temp[length].stack_op2[0] = AL_res[i];
+                        else {
+                            print_error("nothing", "more than two transition expressions");
+                            free(transitions);
+                            return NULL;
+                        }
                         etat_actif = 4;
                         break;
                     case DELIMITER:  // Pas d'action de pile
@@ -550,8 +599,7 @@ transition_list *transitions_two_stack(lexeme *AL_res, int head, int tail) {
                             return NULL;
                         }
                         free(stack->pop(stack));
-                        if (op_num == 1) op_num = 2;
-                        else op_num = 1;
+                        op_num++;
                         etat_actif = 5;
                         break;
                     default:
@@ -594,8 +642,7 @@ transition_list *transitions_two_stack(lexeme *AL_res, int head, int tail) {
                                 return NULL;
                             }
                             free(stack->pop(stack));
-                            if (op_num == 1) op_num = 2;
-                            else op_num = 1;
+                            op_num++;
                             etat_actif = 4;
                             break;
                         } else {
@@ -604,7 +651,7 @@ transition_list *transitions_two_stack(lexeme *AL_res, int head, int tail) {
                             return NULL;
                         }
                     case DIGIT:
-                        temp[length].end = AL_res[i].value[0] - '0';
+                        temp[length].end = str2int(AL_res[i].value);
                         etat_actif = 1;
                         break;
                     default:
@@ -620,7 +667,12 @@ transition_list *transitions_two_stack(lexeme *AL_res, int head, int tail) {
                             temp[length].character = AL_res[i].value;
                         } else {
                             if (op_num == 1) temp[length].stack_op1[1] = AL_res[i];
-                            else temp[length].stack_op2[1] = AL_res[i];
+                            else if (op_num == 2) temp[length].stack_op2[1] = AL_res[i];
+                            else {
+                                print_error("nothing", "more than two transition expressions");
+                                free(transitions);
+                                return NULL;
+                            }
                         }
                         etat_actif = 4;
                         break;
@@ -636,16 +688,21 @@ transition_list *transitions_two_stack(lexeme *AL_res, int head, int tail) {
                         }
                     case OPERATOR:
                         if (stack->head == stack->tail) {
-                            print_error("character or → ", AL_res[i].value);
+                            print_error("character or →", AL_res[i].value);
                             free(transitions);
                             return NULL;
                         }
                         if (op_num == 1) temp[length].stack_op1[1] = AL_res[i];
-                        else temp[length].stack_op2[1] = AL_res[i];
+                        else if (op_num == 2) temp[length].stack_op2[1] = AL_res[i];
+                        else {
+                            print_error("nothing", "more than two transition expressions");
+                            free(transitions);
+                            return NULL;
+                        }
                         etat_actif = 2;
                         break;
                     default:
-                        print_error(") character or → ", AL_res[i].value);
+                        print_error("( ) character or →", AL_res[i].value);
                         free(transitions);
                         return NULL;
                 }
@@ -679,9 +736,9 @@ transition_list *transitions_two_stack(lexeme *AL_res, int head, int tail) {
                         etat_actif = 5;
                         if (stack->is_empty(stack)) {
                             length++;
+                            op_num = 1;
                         } else {
-                            if (op_num == 1) op_num = 2;
-                            else op_num = 1;
+                            op_num++;
                         }
                         break;
                     case COMMA:
@@ -767,10 +824,10 @@ transition_list *automate_transitions(lexeme *AL_res, int head, int tail, int st
     return transitions;
 }
 
-analyse_syntaxique_result *analyse_syntaxique(lexeme *AL_res) {
+analyse_syntaxique_resultat *analyse_syntaxique(lexeme *AL_res) {
     int cursor = 0;
     int etats_tail, final_tail, transitions_tail;
-    analyse_syntaxique_result *res = malloc(sizeof(analyse_syntaxique_result));
+    analyse_syntaxique_resultat *res = malloc(sizeof(analyse_syntaxique_resultat));
     res->has_error = false;
 
     while (true) {
@@ -791,7 +848,12 @@ analyse_syntaxique_result *analyse_syntaxique(lexeme *AL_res) {
             res->has_error = true;
             break;
         }
-        res->stack_num = AL_res[cursor].value[0] - '0';
+        res->stack_num = str2int(AL_res[cursor].value);
+        if (res->stack_num > 2) {
+            print_error("a number less or equal than 2", AL_res[cursor].value);
+            res->has_error = true;
+            break;
+        }
         cursor++;  //3
         if (AL_res[cursor].value[0] != ')') {
             print_error(")", AL_res[cursor].value);
@@ -883,7 +945,7 @@ analyse_syntaxique_result *analyse_syntaxique(lexeme *AL_res) {
             res->has_error = true;
             break;
         }
-        res->initial = AL_res[cursor].value[0] - '0';
+        res->initial = str2int(AL_res[cursor].value);
         cursor++;
 
         //extract finals

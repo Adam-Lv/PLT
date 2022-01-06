@@ -261,7 +261,7 @@ void match_delimiter_and_comma(String *buffer, Heap *heap) {
     }
 }
 
-analysis_lexical_result *analyse_lexicale(char *in_file) {
+analyse_lexicale_resultat *analyse_lexicale(char *in_file) {
     FILE *file = fopen(in_file, "r");
 
     // Eliminate the comments
@@ -300,7 +300,7 @@ analysis_lexical_result *analyse_lexicale(char *in_file) {
         res[i].type = temp->ele->type;
         res[i].value = temp->ele->value;
     }
-    analysis_lexical_result *AL_res = malloc(sizeof(analysis_lexical_result));
+    analyse_lexicale_resultat *AL_res = malloc(sizeof(analyse_lexicale_resultat));
     AL_res->res = res;
     int i = 0, j = 0;
     while (i < buffer->length) {

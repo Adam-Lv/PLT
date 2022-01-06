@@ -1,16 +1,23 @@
-#include "../include/analyse_lexicale.h"
 #include "../include/analyse_syntaxique.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-int main() {
-    analysis_lexical_result *AL_res = analyse_lexicale("../resources/Dpile.txt");
+int test_analyse_syntaxique(char *file_name) {
+    char *path = "../resources/";
+    int length = strlen(path) + strlen(file_name) + 1;
+    char *in_file = malloc(sizeof(char) * length);
+    strcat(in_file, path);
+    strcat(in_file, file_name);
+    analyse_lexicale_resultat *AL_res = analyse_lexicale(in_file);
     if (AL_res->error_char != '\0') {
-        printf("Lexical analysis has print_error! Unknown character: %c\n", AL_res->error_char);
+        printf("Lexical analysis has error! Unknown character: %c\n", AL_res->error_char);
         return 1;
     }
-    analyse_syntaxique_result *ASy_res = analyse_syntaxique(AL_res->res);
+    analyse_syntaxique_resultat *ASy_res = analyse_syntaxique(AL_res->res);
     if (ASy_res->has_error) return 1;
-    printf("Syntax analysis has no print_error. Here is the results\n");
+    printf("Syntax analysis has no error. Here is the results:\n");
+    printf("--------------------------------------------------\n");
     printf("stack numbers: %d\n", ASy_res->stack_num);
     printf("etats: ");
     for (int i = 0; i < ASy_res->etats->length - 1; i++)
@@ -42,4 +49,8 @@ int main() {
         } else printf("\t\tNo operation on stack 2\n");
     }
     return 0;
+}
+
+int main() {
+    return test_analyse_syntaxique("Upile.txt");
 }

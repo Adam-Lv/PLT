@@ -51,7 +51,7 @@ typedef struct {
     int initial;
     final_list *finals;
     transition_list *transitions;
-} analyse_syntaxique_result;
+} analyse_syntaxique_resultat;
 
 etat_list *automate_etats(lexeme *AL_res, int head, int tail);
 
@@ -59,6 +59,6 @@ final_list *automate_finals(lexeme *AL_res, int head, int tail);
 
 transition_list *automate_transitions(lexeme *AL_res, int head, int tail, int stack_num);
 
-analyse_syntaxique_result *analyse_syntaxique(lexeme *AL_res);
+analyse_syntaxique_resultat *analyse_syntaxique(lexeme *AL_res);
 
 #endif //PLT_ANALYSE_SYNTAXIQUE_H

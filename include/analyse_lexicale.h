@@ -38,8 +38,8 @@ typedef struct {
 typedef struct analysis_lexical_result {
     lexeme *res;
     char error_char;
-} analysis_lexical_result;
+} analyse_lexicale_resultat;
 
-analysis_lexical_result *analyse_lexicale(char *in_file);
+analyse_lexicale_resultat *analyse_lexicale(char *in_file);
 
 #endif //PLT_ANALYSE_LEXICALE_H

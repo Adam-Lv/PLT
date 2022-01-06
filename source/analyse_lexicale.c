@@ -263,11 +263,15 @@ void match_delimiter_and_comma(String *buffer, Heap *heap) {
 
 analyse_lexicale_resultat *analyse_lexicale(char *in_file) {
     FILE *file = fopen(in_file, "r");
+    if (file == NULL) {
+        printf("No such file or directory: %s\n", in_file);
+        exit(1);
+    }
 
     // Eliminate the comments
     String *buffer = eliminate_comments(file);
     // Find the information by regular expressions
-    regex_t reg_digit, reg_operator, reg_character, reg_keyword, reg_delimiter, reg_string;
+    regex_t reg_digit, reg_operator, reg_character, reg_keyword, reg_string;
     char *regexp_digit = "[0-9]+";
     char *regexp_operator = "[=→]";
     char *regexp_character = "`[^`.]+`";
@@ -328,5 +332,6 @@ analyse_lexicale_resultat *analyse_lexicale(char *in_file) {
     regfree(&reg_string);
     regfree(&reg_character);
     regfree(&reg_keyword);
+    fclose(file);
     return AL_res;
 }

@@ -3,9 +3,8 @@ project(PLT C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(Exec Executeur.c source/analyse_semantique.c
-        source/analyse_syntaxique.c source/analyse_lexicale.c source/Compilation.c)
-add_executable(Compile Compilation.c source/analyse_semantique.c
+add_executable(Exec Executeur.c)
+add_executable(Compile Compilateur.c source/analyse_semantique.c
         source/analyse_syntaxique.c source/analyse_lexicale.c source/Compilation.c)
 add_executable(Test_AL test/test_AL.c source/analyse_lexicale.c)
 add_executable(Test_ASy test/test_ASy.c source/analyse_syntaxique.c source/analyse_lexicale.c)

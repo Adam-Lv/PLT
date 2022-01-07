@@ -115,17 +115,17 @@ Compilation_result *generate_VM_and_TS(analyse_syntaxique_resultat *ASy_res) {
     // write into files
     FILE *TS_file;
     TS_file = fopen("../output/TS.txt", "w");
-    fprintf(TS_file, "état\taddress\n");
+    fprintf(TS_file, "%-6s\taddress\n", "état");
     for (int i = 0; i < res->etat_num; i++)
-        fprintf(TS_file, " %s\t\t%2d\n", res->TS[i].etat_name, res->TS[i].address);
+        fprintf(TS_file, "%-6s\t%-3d\n", res->TS[i].etat_name, res->TS[i].address);
     fclose(TS_file);
 
     FILE *VM_file = fopen("../output/VM.txt", "w");
     for (int i = 0; i < res->VM_length; i++)
-        fprintf(VM_file, "%2d ", i);
+        fprintf(VM_file, "%-3d ", i);
     fprintf(VM_file, "\n");
     for (int i = 0; i < res->VM_length; i++)
-        fprintf(VM_file, "%2d ", res->VM[i]);
+        fprintf(VM_file, "%-3d ", res->VM[i]);
     fprintf(VM_file, "\n");
     fclose(VM_file);
 

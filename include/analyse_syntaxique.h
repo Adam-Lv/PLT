@@ -16,6 +16,7 @@ typedef struct Stack {
     StackNode *tail;
     bool (*is_empty)(struct Stack *);
     void (*append)(struct Stack *, StackNode *);
+    void (*clean)(struct Stack *);
     StackNode *(*pop)(struct Stack *);
 } Stack;
 

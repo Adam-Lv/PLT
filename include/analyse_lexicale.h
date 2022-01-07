@@ -6,7 +6,7 @@
 #define bool int
 #define true 1
 #define false 0
-#define MAX_ETAT_NUM 10
+#define MAX_ETAT_NUM 20
 #define MAX_TRANSITION_NUM 30
 
 /**

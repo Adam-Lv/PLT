@@ -8,7 +8,7 @@ ASy_OBJ = $(AL_OBJ) $(BIN)analyse_syntaxique.o
 ASe_OBJ = $(ASy_OBJ) $(BIN)analyse_semantique.o
 C_OBJ = $(ASe_OBJ) $(BIN)Compilation.o
 Com_OBJ = $(C_OBJ) $(BIN)Compilateur.o
-Exe_OBJ = $(C_OBJ) $(BIN)Executeur.o
+Exe_OBJ = Executeur.c
 
 TAL_OBJ = $(AL_OBJ) $(BIN)test_AL.o
 TASy_OBJ = $(ASy_OBJ) $(BIN)test_ASy.o
@@ -47,3 +47,4 @@ $(BIN)%.o:%.c
 
 clean:
 	rm $(BIN)*
+	rm output/*
